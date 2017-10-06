@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Room</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Space+Mono" rel="stylesheet">
+
+  <style>
+  body {
+    background-color: linen;
+    height: 500px;
+  }
+
+  #page {
+    height: 100%;
+  }
+
+  #general_info {
+    margin-bottom: 10px;
+    border-width: 2px;
+    border-bottom-width: 1px;
+    border-bottom-color: black;
+    border-bottom-style: solid;
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+  }
+
+  .message.username {
+    padding-right: 5px;
+    padding-left: 5px;
+    color: red;
+
+  }
+
+  .sysMsg {
+    color: #c1bfbf;
+    padding-right: 5px;
+    padding-left: 5px;
+    font-size: 12px;
+  }
+
+  #users {
+    width: 490px;
+    padding: 0 5px 5px;
+  }
+
+  #left_bar {
+    float:left;
+    width:100px;
+    border-right:1px solid black;
+    height:100%;
+    padding:10px;
+    overflow:scroll-y;
+    font-family: 'Space Mono', monospace;
+  }
+  #right_bar {
+    float:right;
+    width:200px;
+    border-left:1px solid black;
+    height:100%;
+    padding:10px;
+    overflow:scroll-y;
+    font-family: 'Space Mono', monospace;
+  }
+
+  #room_settings {
+    float:center-left;
+    width:300px;
+    height:100%;
+    padding:10px;"
+    overflow:scroll-y;
+  }
+
+  #message_input {
+    width: 200px;
+  }
+
+  #chatlog {
+    height: 100%;
+    font-family: 'Space Mono', monospace;
+  }
+
+  </style>
+
+</head>
+
+<body>
+  <div id = "page">
+    <div id = "general_info" >
+      <div id = "nickname">
+        Nickname: <span id = "username"> </span><br/>
+      </div>
+      <div id = "general_user_info">
+        Online Users: <span id="users"> </span><br/>
+        Number of Online Users: <span id = "count"> </span>
+      </div>
+    </div>
+
+    <div id = "left_bar">
+      <b>Rooms:</b>
+      <div id = "chatrooms"></div><br>
+	  <div id = "viproom"></div><br>
+    </div>
+
+    <div id = "right_bar">
+      <b>Private Messages:</b>
+      <div id = "whisper_button">
+        <button id="private">Whisper</button>
+      </div>
+      <div id="pms"></div>
+    </div>
+
+    <div id="chatlog"></div>
+
+    <div id = "message_box">
+      <input type = "text" name = "message" id="message_input" placeholder= "Type message here.." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <button id="joinOrLeave">Quit</button>
+    <div id = "kick function">
+      <input id="kick" style = "width:60px;"/>
+      <button id = "kickusers">Kick</button>
+    </div>
+    <div id = "ban function">
+      <input id="ban" style = "width:60px;"/>
+      <button id = "banusers">Ban</button>
+    </div>
+
+    <div id = "room_settings">
+      <div id="createroom"></div>
+      <input id="roomname" style="width:60px;" />
+      <input type="button" id="create" value="New Room" />
+    
+	 <div id = "privateroom"></div>
+	 <input = id = "roomname2" style="width:60px;"/>
+	 <input id = "password" style = "width:60px;"/>
+	 <input type = "button" id = "createp" value = "New Proom"/>
+	 </div>
+  </div>
+</body>
+
+
+
+<script src="/socket.io/socket.io.js"> </script>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"> </script>
+<script type ="text/javascript">
+// var currentRoomLocal = '';
+
+var socketio = io.connect();
+socketio.on('connect', function(){
+  username = prompt("What's your nickname?");
+  if(username != "" && username != null) {
+    $('#username').text(username);
+    socketio.emit('newuser', {"message": username});
+  }
+  else {
+    alert("Please refresh page and enter a valid username.")
+  }
+
+});
+
+socketio.on("invalid_username", function() {
+  alert("This username has already been taken. Please refresh the page and enter a different username.")
+});
+
+socketio.on("message_to_client",function(data) {
+  //Append an HR thematic break and the escaped HTML of the new message
+  var string = data["username"];
+  document.getElementById("chatlog").appendChild(document.createElement("hr"));
+  document.getElementById("chatlog").appendChild(document.createTextNode(data['username'] + " " + data['message']));
+  $('#chatlog').scrollTop($('#chatlog')[0].scrollHeight);
+});
+
+function sendMessage(){
+  var msg = document.getElementById("message_input").value;
+  socketio.emit("message_to_server", {message:msg, username: username});
+}
+
+socketio.on('updatechat', function (data) {
+  var username = data["username"];
+  var message = data["message"];;
+  console.log(data["username"]);
+  $('#chatlog').append(data["username"]  +  ': ' + data["message"] );
+});
+
+socketio.on('updaterooms', function(data) {
+  var chatrooms = data["chatrooms"];
+  var currentRoom = data["currentRoom"];
+  console.log(currentRoom);
+  console.log(chatrooms);
+  $('#chatrooms').empty();
+  $.each(chatrooms, function(key, value) {
+    if(value == currentRoom){
+      $('#chatrooms').append('<div>' + value + '</div>');
+    }
+    else {
+      $('#chatrooms').append('<div><a href="#" onclick="switchroom(\''+value+'\')">' + value + '</a></div>');
+    }
+  });
+});
+
+socketio.on('updateprooms', function(data) {
+  var viproom = data["viproom"];
+  var currentRoom = data["currentRoom"];
+  console.log(currentRoom);
+  console.log(viproom);
+  $('#viproom').empty();
+  $.each(viproom, function(key, value) {
+    if(value == currentRoom){
+      $('#viproom').append('<div>' + value + '</div>');
+    }
+    else {
+      $('#viproom').append('<div><a href="#" onclick="switchviproom(\''+value+'\')">' + value + '</a></div>');
+    }
+  });
+});
+
+function switchviproom(room){
+   socketio.emit('checkvalid', room, pass = prompt("Enter password of room."));
+  }
+  
+
+
+
+socketio.on("updateusers", function(data){
+  var users = data["users"];
+  var currentRoom = data["currentRoom"];
+  var count = data["count"];
+  console.log(data["currentRoom"]);
+  console.log(data["users"]);
+  console.log(data["count"]);
+  $('#users').empty();
+  $.each(users, function(key, value) {
+    if(value == currentRoom){
+      $('#users').append('<div>' + key + '</div>');
+      //$('#count').text(count);
+    }
+  });
+
+  console.log('updating users');
+});
+
+
+socketio.on('sys', function (sysMsg, username) {
+  var message = '<div class="sysMsg">' + sysMsg + '</div>';
+  $('#chatlog').append(message);
+});
+
+socketio.on('private message', function(receiver, message) {
+  if (receiver == username) {
+    $('#pms').append(message);
+  }
+});
+
+socketio.on("kick temp", function(target){
+  //Redirect to Lobby
+  if(username == target){
+    socketio.emit("switchroom", "Lobby");
+  }
+});
+
+socketio.on("ban", function(target, room){
+	  //socket.room = room;
+	  //blacklist list 
+	  console.log(room);
+	  var blacklist = {};
+      blacklist[room] = target; 
+	  console.log(target);
+	 if(username == target){
+          socketio.emit("switchroom", "lobby");
+        }
+		
+	   });
+	
+
+function switchroom(newroom){
+  socketio.emit('switchroom', newroom);
+  if(blacklist[room] == username){
+         socket.broadcast.to(room).emit('updatechat', {"username": username, "message": 'has lose the right to add to the room forever'});
+		 console.log(username + "has lose the right to connect");
+  //currentRoomLocal = newroom;
+}
+
+}
+
+
+ 
+
+$().ready(function(){
+  $('#joinOrLeave').click(function () {
+    console.log('kkk');
+    if ($(this).text() === 'quit the room') {
+      $(this).text('join the room');
+      socketio.emit('leave');
+      var message = 'You have logged out already"';
+      $('#chatlog').append(message);
+    } else {
+      $(this).text('quit the room');
+      socketio.emit('join', username);
+    }
+  });
+
+  $('#create').click(function(){
+    var name = $('#roomname').val();
+    var owner = username;
+    console.log(owner);
+    $('#roomname').val('');
+    socketio.emit('createroom', name, owner);
+  });
+   
+   
+ $('#createp').click(function(){
+    var name2 = $('#roomname2').val();
+    var owner = username;
+	var pass = $('#password').val();
+    console.log(owner);
+    $('#roomname2').val('');
+	$('#password').val('');
+    socketio.emit('createprotected', name2, pass, owner);
+  });
+  
+  $('#private').click(function(receiver, message){
+    console.log(receiver);
+    console.log(message);
+    receiver= prompt("Who do you want to private message?");
+    message = prompt("What is your message?");
+    //$('#chatlog').append(receiver + ' ' + message);
+    socketio.emit('private message', receiver, message);
+  });
+
+
+  $('#kickusers').click(function(){
+    var user =$('#kick').val();
+    $('#kick').val('');
+    var owner = username;
+    var target = user;
+    console.log(target);
+    console.log(owner);
+    socketio.emit('kick temp', target, owner);
+
+  });
+
+  $('#banusers').click(function(){
+    var target = $('#ban').val();
+    $('#ban').val('');
+    var manner = username;
+    console.log(target);
+    console.log(manner);
+    socketio.emit('ban all', target, manner);
+  });
+});
+
+socketio.on('displayusers', function (username, count, currentRoom) {
+  console.log("There are " + count);
+  $('#users').append(username);
+  $('#count').append(count);
+  $('#currentRoom').append(currentRoom);
+});
+
+</script>
+
+</html>
